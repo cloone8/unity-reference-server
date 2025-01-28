@@ -25,6 +25,10 @@ lto = true
 codegen-units = 1
 panic = "unwind"
 
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+
 [workspace.lints.rust]
 missing_docs = "warn"
 unsafe_op_in_unsafe_fn = "warn"
