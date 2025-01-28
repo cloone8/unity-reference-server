@@ -1,5 +1,6 @@
 [package]
 name = "unity-reference-server"
+description = "An application and server for resolving references within Unity projects"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0"
