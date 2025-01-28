@@ -2,6 +2,11 @@
 name = "unity-reference-server"
 version = "0.1.0"
 edition = "2021"
+license = "GPL-3.0"
+authors = ["Wouter de Bruijn <wouter@wutru.io>"]
+repository = "https://github.com/cloone8/unity-reference-server"
+keywords = ["unity", "reference", "server"]
+categories = ["development-tools"]
 
 [dependencies]
 tokio = { version = "1.43.0", features = ["full"] }
