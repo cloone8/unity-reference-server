@@ -13,6 +13,8 @@ use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
+use crate::yamlparser::search_yaml_doc;
+
 static UNITY_STRIPPED_REGEX: tokio::sync::RwLock<Option<Regex>> = RwLock::const_new(None);
 
 #[derive(Debug, Clone)]
@@ -154,17 +156,13 @@ async fn handle_file(file: &Path, refs: Arc<RwLock<HashMap<Method, Vec<MethodRef
                         "Searching document in file {}",
                         file_cloned.to_string_lossy()
                     );
-                    search_document(doc, refs_cloned);
+                    search_yaml_doc(&doc, &refs_cloned, &file_cloned).await;
                 });
             }
 
             document_tasks.join_all().await;
         }
     }
-}
-
-fn search_document(doc: Yaml, refs: Arc<RwLock<HashMap<Method, Vec<MethodRef>>>>) {
-    log::trace!("Searching document");
 }
 
 #[derive(Debug)]
@@ -221,14 +219,24 @@ pub enum ServerStatus {
     Ready,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Method {
     pub method_name: String,
     pub method_assembly: String,
     pub method_typename: String,
 }
 
-#[derive(Debug, Clone)]
+impl Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}.{}.{}",
+            self.method_assembly, self.method_typename, self.method_name
+        )
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MethodRef {
     pub file: PathBuf,
 }
