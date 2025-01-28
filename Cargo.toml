@@ -1,0 +1,29 @@
+[package]
+name = "unity-reference-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.43.0", features = ["full"] }
+jsonrpsee = { version = "0.24.7", features = ["server"] }
+clap = { version = "4.5.27", features = ["derive"] }
+log = { version = "0.4.25", features = ["release_max_level_debug", "std"] }
+simplelog = { version = "0.12.2" }
+serde = { version = "1.0.27", features = ["derive"] }
+saphyr = { version = "0.0.3" }
+saphyr-parser = { version = "0.0.3" }
+regex = { version = "1.11.1" }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "unwind"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+missing_docs_in_private_items = "warn"
