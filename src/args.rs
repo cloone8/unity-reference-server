@@ -4,6 +4,7 @@ use clap::{Parser, ValueEnum};
 use log::LevelFilter;
 
 #[derive(Parser, Debug)]
+#[command(version)]
 pub struct CliArgs {
     #[arg()]
     pub folder: PathBuf,
