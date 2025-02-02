@@ -2,6 +2,9 @@
 
 This file will document the most important changes for each released version.
 
+## [v0.1.4]
+- Logs now go to stderr, leaving stdout for other communication
+
 ## [v0.1.3]
 - Changed distribution archive to zip
 

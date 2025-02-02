@@ -20,7 +20,7 @@ async fn main() {
     TermLogger::init(
         args.verbosity.into(),
         ConfigBuilder::new().build(),
-        simplelog::TerminalMode::Mixed,
+        simplelog::TerminalMode::Stderr,
         simplelog::ColorChoice::Auto,
     )
     .unwrap();
