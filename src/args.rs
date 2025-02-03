@@ -12,7 +12,7 @@ pub struct CliArgs {
     #[arg(short, long, default_value = "0.0.0.0")]
     pub addr: String,
 
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "0")]
     pub port: u16,
 
     /// The verbosity of the logger

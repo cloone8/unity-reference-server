@@ -26,11 +26,19 @@ async fn main() {
     .unwrap();
 
     log::info!("Watching folder: {}", args.folder.to_string_lossy());
-    log::info!("Listening on address and port: {}:{}", args.addr, args.port);
+    log::info!(
+        "Starting server on address and port: {}:{}",
+        args.addr,
+        args.port
+    );
 
     let full_addr = format!("{}:{}", args.addr, args.port);
 
     let server = Server::builder().build(full_addr).await.unwrap();
+    let actual_addr = server.local_addr().expect("Could not get server address");
+
+    // Print the port to stdout
+    println!("{}", actual_addr.port());
 
     let crawler = Arc::new(Crawler::new(args.folder).await);
     crawler.start().await;
