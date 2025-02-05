@@ -20,6 +20,8 @@ saphyr = { version = "0.0.3" }
 saphyr-parser = { version = "0.0.3" }
 regex = { version = "1.11.1" }
 futures = { version = "0.3.31" }
+chrono = { version = "0.4.39" }
+serde_json = { version = "1.0.138" }
 
 [profile.release]
 strip = true

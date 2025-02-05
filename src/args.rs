@@ -15,6 +15,9 @@ pub struct CliArgs {
     #[arg(short, long, default_value = "0")]
     pub port: u16,
 
+    #[arg(long, default_value = "false")]
+    pub json_logs: bool,
+
     /// The verbosity of the logger
     #[cfg(not(debug_assertions))]
     #[arg(value_enum, short, long, default_value_t = LogLevel::Warn)]

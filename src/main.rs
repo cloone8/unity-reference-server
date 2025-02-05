@@ -4,6 +4,7 @@ use std::sync::Arc;
 use args::CliArgs;
 use clap::Parser;
 use crawler::{Crawler, Method, MethodRef, ServerStatus};
+use jsonlogger::JsonLogger;
 use jsonrpsee::server::Server;
 use jsonrpsee::types::Params;
 use jsonrpsee::{Extensions, ResponsePayload, RpcModule};
@@ -11,19 +12,24 @@ use simplelog::{ConfigBuilder, TermLogger};
 
 mod args;
 mod crawler;
+mod jsonlogger;
 mod yamlparser;
 
 #[tokio::main]
 async fn main() {
     let args = CliArgs::parse();
 
-    TermLogger::init(
-        args.verbosity.into(),
-        ConfigBuilder::new().build(),
-        simplelog::TerminalMode::Stderr,
-        simplelog::ColorChoice::Auto,
-    )
-    .unwrap();
+    if args.json_logs {
+        JsonLogger::init(args.verbosity.into(), std::io::stderr()).unwrap();
+    } else {
+        TermLogger::init(
+            args.verbosity.into(),
+            ConfigBuilder::new().build(),
+            simplelog::TerminalMode::Stderr,
+            simplelog::ColorChoice::Auto,
+        )
+        .unwrap();
+    }
 
     log::info!("Watching folder: {}", args.folder.to_string_lossy());
     log::info!(
