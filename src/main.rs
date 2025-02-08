@@ -1,15 +1,16 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
+use api::method::rpc_method_handler;
+use api::status::rpc_status_handler;
 use args::CliArgs;
 use clap::Parser;
-use crawler::{Crawler, Method, MethodRef, ServerStatus};
+use crawler::Crawler;
 use jsonlogger::JsonLogger;
 use jsonrpsee::server::Server;
-use jsonrpsee::types::Params;
-use jsonrpsee::{Extensions, ResponsePayload, RpcModule};
+use jsonrpsee::RpcModule;
 use simplelog::{ConfigBuilder, TermLogger};
 
+mod api;
 mod args;
 mod crawler;
 mod jsonlogger;
@@ -55,10 +56,6 @@ async fn main() {
         .unwrap();
 
     module
-        .register_async_method("all", rpc_all_refs_handler)
-        .unwrap();
-
-    module
         .register_async_method("method", rpc_method_handler)
         .unwrap();
 
@@ -67,47 +64,4 @@ async fn main() {
     log::info!("Started server");
 
     tokio::spawn(handle.stopped()).await.unwrap();
-}
-
-async fn rpc_status_handler(
-    _params: Params<'static>,
-    context: Arc<Crawler>,
-    _extensions: Extensions,
-) -> ResponsePayload<'static, ServerStatus> {
-    log::debug!("Handling status request");
-
-    ResponsePayload::success(context.status.read().await.clone())
-}
-
-async fn rpc_all_refs_handler(
-    _params: Params<'static>,
-    context: Arc<Crawler>,
-    _extensions: Extensions,
-) -> ResponsePayload<'static, HashMap<String, Vec<MethodRef>>> {
-    log::debug!("Handling all refs request");
-
-    let all_refs = context.refs.read().await;
-    let formatted: HashMap<String, Vec<MethodRef>> = all_refs
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.clone()))
-        .collect();
-
-    ResponsePayload::success(formatted)
-}
-
-async fn rpc_method_handler(
-    _params: Params<'static>,
-    context: Arc<Crawler>,
-    _extensions: Extensions,
-) -> ResponsePayload<'static, Vec<MethodRef>> {
-    log::debug!("Handling method request");
-
-    let method: Method = match _params.parse() {
-        Ok(m) => m,
-        Err(e) => return ResponsePayload::error(e),
-    };
-
-    let all_refs = context.refs.read().await;
-
-    ResponsePayload::success(all_refs.get(&method).cloned().unwrap_or_default())
 }

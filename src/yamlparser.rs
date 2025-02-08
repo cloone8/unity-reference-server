@@ -4,7 +4,7 @@ use std::path::Path;
 use saphyr::Yaml;
 use tokio::sync::RwLock;
 
-use crate::crawler::{Method, MethodRef};
+use crate::api::method::{Method, MethodRef};
 
 pub async fn search_yaml_doc(
     doc: &Yaml,
@@ -33,7 +33,7 @@ async fn search_monobehaviour(
     );
 
     let my_method_ref = MethodRef {
-        file: origin_file.to_path_buf(),
+        file: origin_file.to_string_lossy().to_string(),
     };
 
     search_mono_fields_recursive(mono, refs, &my_method_ref).await;

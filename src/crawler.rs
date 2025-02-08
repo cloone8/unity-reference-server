@@ -6,13 +6,14 @@ use std::sync::Arc;
 
 use regex::Regex;
 use saphyr::Yaml;
-use serde::{Deserialize, Serialize};
 use tokio::fs::DirEntry;
 use tokio::io::{self, AsyncReadExt};
 use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
+use crate::api::method::{Method, MethodRef};
+use crate::api::status::ServerStatus;
 use crate::yamlparser::search_yaml_doc;
 
 static UNITY_STRIPPED_REGEX: tokio::sync::RwLock<Option<Regex>> = RwLock::const_new(None);
@@ -210,33 +211,4 @@ async fn read_file_to_yaml(file: &Path) -> Result<Vec<Yaml>, ReadErr> {
 
     let mut parser = saphyr_parser::Parser::new_from_str(&cleaned).keep_tags(true);
     Ok(Yaml::load_from_parser(&mut parser)?)
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ServerStatus {
-    Inactive,
-    Initializing,
-    Ready,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
-pub struct Method {
-    pub method_name: String,
-    pub method_assembly: String,
-    pub method_typename: String,
-}
-
-impl Display for Method {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}.{}.{}",
-            self.method_assembly, self.method_typename, self.method_name
-        )
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MethodRef {
-    pub file: PathBuf,
 }
