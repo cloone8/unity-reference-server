@@ -2,7 +2,7 @@ use core::fmt::Display;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use regex::Regex;
 use saphyr::Yaml;
@@ -12,27 +12,46 @@ use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use crate::api::method::{MethodParam, MethodResponse};
 use crate::api::status::StatusResponse;
 use crate::yamlparser::search_yaml_doc;
 
-static UNITY_STRIPPED_REGEX: tokio::sync::RwLock<Option<Regex>> = RwLock::const_new(None);
+// static UNITY_STRIPPED_REGEX: tokio::sync::RwLock<Option<Regex>> = RwLock::const_new(None);
+static UNITY_STRIPPED_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(--- .* .*) stripped").unwrap());
 
 #[derive(Debug, Clone)]
 pub struct Crawler {
     dir: PathBuf,
     pub status: Arc<RwLock<StatusResponse>>,
-    pub refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>,
+    pub method_refs: Arc<RwLock<HashMap<MethodDefinition, Vec<Reference>>>>,
+    pub object_refs: Arc<RwLock<HashMap<ObjectDefinition, Vec<Reference>>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArcRefSet {
+    pub methods: Arc<RwLock<HashMap<MethodDefinition, Vec<Reference>>>>,
+    pub objects: Arc<RwLock<HashMap<ObjectDefinition, Vec<Reference>>>>,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct MethodDefinition {
+    pub method_name: String,
+    pub method_assembly: String,
+    pub method_typename: String,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ObjectDefinition {
+    pub guid: String,
 }
 
 impl Crawler {
     pub async fn new(dir: impl AsRef<Path>) -> Self {
-        *UNITY_STRIPPED_REGEX.write().await = Some(Regex::new(r"(--- .* .*) stripped").unwrap());
-
         Self {
             dir: dir.as_ref().to_path_buf(),
             status: Arc::new(RwLock::const_new(StatusResponse::Inactive)),
-            refs: Arc::new(RwLock::const_new(HashMap::default())),
+            method_refs: Arc::new(RwLock::const_new(HashMap::default())),
+            object_refs: Arc::new(RwLock::const_new(HashMap::default())),
         }
     }
 
@@ -51,16 +70,20 @@ impl Crawler {
 
         std::mem::drop(status);
 
-        // Fake init
         let status_arc = self.status.clone();
-        let refs_arc = self.refs.clone();
+
+        let refset = ArcRefSet {
+            methods: self.method_refs.clone(),
+            objects: self.object_refs.clone(),
+        };
+
         let dir = self.dir.clone();
 
         tokio::spawn(async move {
             log::debug!("Starting crawler");
             let start_time = Instant::now();
 
-            match crawl_dir(&dir, refs_arc).await {
+            match crawl_dir(&dir, refset).await {
                 Ok(()) => {
                     *status_arc.write().await = StatusResponse::Ready;
                     log::info!(
@@ -79,10 +102,7 @@ impl Crawler {
 
 const EXTENSIONS: &[&str] = &["unity", "prefab"];
 
-async fn crawl_dir(
-    dir: &Path,
-    refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>,
-) -> io::Result<()> {
+async fn crawl_dir(dir: &Path, refs: ArcRefSet) -> io::Result<()> {
     log::debug!("Crawling directory {}", dir.to_string_lossy());
 
     let mut files = tokio::fs::read_dir(dir).await?;
@@ -98,11 +118,7 @@ async fn crawl_dir(
     Ok(())
 }
 
-fn crawl_dir_entry(
-    item: DirEntry,
-    join_set: &mut JoinSet<()>,
-    refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>,
-) {
+fn crawl_dir_entry(item: DirEntry, join_set: &mut JoinSet<()>, refs: ArcRefSet) {
     join_set.spawn(async move {
         let item_type = item.file_type().await.unwrap();
 
@@ -127,7 +143,7 @@ fn crawl_dir_entry(
     });
 }
 
-async fn handle_file(file: &Path, refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>) {
+async fn handle_file(file: &Path, refs: ArcRefSet) {
     if let Some(extension) = file.extension().and_then(|ext| ext.to_str()) {
         if EXTENSIONS.contains(&extension) {
             log::debug!("Found possible file: {}", file.to_string_lossy());
@@ -202,13 +218,23 @@ async fn read_file_to_yaml(file: &Path) -> Result<Vec<Yaml>, ReadErr> {
 
     // Dirty hack to get around Unity's broken YAML implementation before I find
     // a proper solution
-    let cleaned = UNITY_STRIPPED_REGEX
-        .read()
-        .await
-        .as_ref()
-        .unwrap()
-        .replace_all(&content, "$1");
+    let cleaned = UNITY_STRIPPED_REGEX.replace_all(&content, "$1");
 
     let mut parser = saphyr_parser::Parser::new_from_str(&cleaned).keep_tags(true);
     Ok(Yaml::load_from_parser(&mut parser)?)
+}
+
+#[derive(Debug, Clone)]
+pub struct Reference {
+    /// Which file? (`/MyProject/MyScene.unity`)
+    pub file: PathBuf,
+
+    /// While line in the file?
+    pub line: Option<usize>,
+
+    /// The human readable name of the referencing asset (`MyScene`)
+    pub asset: Option<String>,
+
+    /// The human readable path to the referencing object within the asset (`GameObject A`-> `GameObject B` -> etc.)
+    pub object: Option<Vec<String>>,
 }

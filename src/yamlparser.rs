@@ -1,16 +1,10 @@
-use std::collections::HashMap;
 use std::path::Path;
 
 use saphyr::Yaml;
-use tokio::sync::RwLock;
 
-use crate::api::method::{MethodParam, MethodResponse};
+use crate::crawler::{ArcRefSet, MethodDefinition, Reference};
 
-pub async fn search_yaml_doc(
-    doc: &Yaml,
-    refs: &RwLock<HashMap<MethodParam, Vec<MethodResponse>>>,
-    origin_file: &Path,
-) {
+pub async fn search_yaml_doc(doc: &Yaml, refs: &ArcRefSet, origin_file: &Path) {
     if !matches!(doc, Yaml::Hash(_)) {
         log::warn!("Unknown Unity YAML root document type");
         return;
@@ -22,28 +16,23 @@ pub async fn search_yaml_doc(
     }
 }
 
-async fn search_monobehaviour(
-    mono: &Yaml,
-    refs: &RwLock<HashMap<MethodParam, Vec<MethodResponse>>>,
-    origin_file: &Path,
-) {
+async fn search_monobehaviour(mono: &Yaml, refs: &ArcRefSet, origin_file: &Path) {
     assert!(
         matches!(mono, Yaml::Hash(_)),
         "MonoBehaviour YAML node can only be a hashmap"
     );
 
-    let my_method_ref = MethodResponse {
-        file: origin_file.to_string_lossy().to_string(),
+    let my_method_ref = Reference {
+        file: origin_file.to_path_buf(),
+        line: None,
+        asset: None,
+        object: None,
     };
 
     search_mono_fields_recursive(mono, refs, &my_method_ref).await;
 }
 
-async fn search_mono_fields_recursive(
-    node: &Yaml,
-    refs: &RwLock<HashMap<MethodParam, Vec<MethodResponse>>>,
-    my_ref: &MethodResponse,
-) {
+async fn search_mono_fields_recursive(node: &Yaml, refs: &ArcRefSet, my_ref: &Reference) {
     log::trace!("Searching YAML node");
 
     match node {
@@ -62,7 +51,7 @@ async fn search_mono_fields_recursive(
                     if key == &Yaml::String(String::from("m_PersistentCalls")) {
                         let found_method_calls = parse_persistent_calls(val);
 
-                        let mut refs_locked = refs.write().await;
+                        let mut refs_locked = refs.methods.write().await;
 
                         for found_method_call in found_method_calls {
                             refs_locked
@@ -82,7 +71,7 @@ async fn search_mono_fields_recursive(
     }
 }
 
-fn parse_persistent_calls(persistent_calls: &Yaml) -> Vec<MethodParam> {
+fn parse_persistent_calls(persistent_calls: &Yaml) -> Vec<MethodDefinition> {
     log::trace!("Found persistent call: {:#?}", persistent_calls);
 
     if let Yaml::Array(targets) = &persistent_calls["m_Calls"] {
@@ -92,7 +81,7 @@ fn parse_persistent_calls(persistent_calls: &Yaml) -> Vec<MethodParam> {
     }
 }
 
-fn parse_call(call: &Yaml) -> Option<MethodParam> {
+fn parse_call(call: &Yaml) -> Option<MethodDefinition> {
     let method_target = &call["m_MethodName"];
     let target_assembly_type = &call["m_TargetAssemblyTypeName"];
 
@@ -100,7 +89,7 @@ fn parse_call(call: &Yaml) -> Option<MethodParam> {
         if let Yaml::String(method_assembly_type) = target_assembly_type {
             let (class, assembly) = method_assembly_type.split_once(", ").expect("REMOVE THIS");
 
-            let found_method_call = MethodParam {
+            let found_method_call = MethodDefinition {
                 method_name: method_name.clone(),
                 method_assembly: assembly.to_owned(),
                 method_typename: class.to_owned(),
