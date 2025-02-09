@@ -1,4 +1,4 @@
-use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Config, Event, PollWatcher, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
@@ -56,12 +56,27 @@ fn watch(crawler: Arc<Crawler>, path: PathBuf, runtime: Handle) {
     }
 }
 
-fn make_watcher() -> notify::Result<(RecommendedWatcher, Receiver<notify::Result<Event>>)> {
+fn make_watcher() -> notify::Result<(Box<dyn Watcher>, Receiver<notify::Result<Event>>)> {
     let (tx, rx) = channel();
+
+    let config = Config::default();
 
     // Automatically select the best implementation for your platform.
     // You can also access each implementation directly e.g. INotifyWatcher.
-    let watcher = RecommendedWatcher::new(tx, Config::default())?;
+    let watcher = match RecommendedWatcher::new(tx.clone(), config) {
+        Ok(w) => Box::new(w) as Box<dyn Watcher>,
+        Err(e) => {
+            log::warn!("Could not construct the recommended filesystem watcher, trying fallback poll watcher: {}", e);
+
+            match PollWatcher::new(tx, config) {
+                Ok(w) => Box::new(w) as Box<dyn Watcher>,
+                Err(e) => {
+                    log::error!("Could not construct fallback filesystem watcher: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+    };
 
     Ok((watcher, rx))
 }
