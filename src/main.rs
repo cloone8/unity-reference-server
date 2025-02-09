@@ -5,14 +5,17 @@ use api::status::rpc_status_handler;
 use args::CliArgs;
 use clap::Parser;
 use crawler::Crawler;
+use fswatcher::start_watch;
 use jsonlogger::JsonLogger;
 use jsonrpsee::server::Server;
 use jsonrpsee::RpcModule;
 use simplelog::{ConfigBuilder, TermLogger};
+use tokio::runtime::Handle;
 
 mod api;
 mod args;
 mod crawler;
+mod fswatcher;
 mod jsonlogger;
 mod yamlparser;
 
@@ -47,9 +50,14 @@ async fn main() {
     // Print the port to stdout
     println!("{}", actual_addr.port());
 
-    let crawler = Arc::new(Crawler::new(args.folder).await);
+    // Start the crawler
+    let crawler = Arc::new(Crawler::new(&args.folder).await);
     crawler.start().await;
 
+    // Watch for changes in the asset directory
+    start_watch(crawler.clone(), &args.folder, Handle::current());
+
+    // Start the JSONRPC server
     let mut module = RpcModule::from_arc(crawler);
     module
         .register_async_method("status", rpc_status_handler)

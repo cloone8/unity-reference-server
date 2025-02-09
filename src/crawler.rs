@@ -15,7 +15,6 @@ use tokio::time::Instant;
 use crate::api::status::StatusResponse;
 use crate::yamlparser::search_yaml_doc;
 
-// static UNITY_STRIPPED_REGEX: tokio::sync::RwLock<Option<Regex>> = RwLock::const_new(None);
 static UNITY_STRIPPED_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(--- .* .*) stripped").unwrap());
 
@@ -72,10 +71,7 @@ impl Crawler {
 
         let status_arc = self.status.clone();
 
-        let refset = ArcRefSet {
-            methods: self.method_refs.clone(),
-            objects: self.object_refs.clone(),
-        };
+        let refset = self.make_refset();
 
         let dir = self.dir.clone();
 
@@ -97,6 +93,13 @@ impl Crawler {
                 }
             }
         });
+    }
+
+    fn make_refset(&self) -> ArcRefSet {
+        ArcRefSet {
+            methods: self.method_refs.clone(),
+            objects: self.object_refs.clone(),
+        }
     }
 }
 
@@ -124,7 +127,7 @@ fn crawl_dir_entry(item: DirEntry, join_set: &mut JoinSet<()>, refs: ArcRefSet) 
 
         if item_type.is_dir() {
             if let Err(e) = crawl_dir(&item.path(), refs).await {
-                log::error!(
+                log::warn!(
                     "Error while trying to crawl subdirectory {}: {}",
                     item.path().to_string_lossy(),
                     e
@@ -150,7 +153,7 @@ async fn handle_file(file: &Path, refs: ArcRefSet) {
             let parsed = match read_file_to_yaml(file).await {
                 Ok(p) => p,
                 Err(e) => {
-                    log::error!(
+                    log::warn!(
                         "Error reading or parsing file {}: {}",
                         file.to_string_lossy(),
                         e
