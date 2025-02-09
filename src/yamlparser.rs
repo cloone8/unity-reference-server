@@ -4,11 +4,11 @@ use std::path::Path;
 use saphyr::Yaml;
 use tokio::sync::RwLock;
 
-use crate::api::method::{Method, MethodRef};
+use crate::api::method::{MethodParam, MethodResponse};
 
 pub async fn search_yaml_doc(
     doc: &Yaml,
-    refs: &RwLock<HashMap<Method, Vec<MethodRef>>>,
+    refs: &RwLock<HashMap<MethodParam, Vec<MethodResponse>>>,
     origin_file: &Path,
 ) {
     if !matches!(doc, Yaml::Hash(_)) {
@@ -24,7 +24,7 @@ pub async fn search_yaml_doc(
 
 async fn search_monobehaviour(
     mono: &Yaml,
-    refs: &RwLock<HashMap<Method, Vec<MethodRef>>>,
+    refs: &RwLock<HashMap<MethodParam, Vec<MethodResponse>>>,
     origin_file: &Path,
 ) {
     assert!(
@@ -32,7 +32,7 @@ async fn search_monobehaviour(
         "MonoBehaviour YAML node can only be a hashmap"
     );
 
-    let my_method_ref = MethodRef {
+    let my_method_ref = MethodResponse {
         file: origin_file.to_string_lossy().to_string(),
     };
 
@@ -41,8 +41,8 @@ async fn search_monobehaviour(
 
 async fn search_mono_fields_recursive(
     node: &Yaml,
-    refs: &RwLock<HashMap<Method, Vec<MethodRef>>>,
-    my_ref: &MethodRef,
+    refs: &RwLock<HashMap<MethodParam, Vec<MethodResponse>>>,
+    my_ref: &MethodResponse,
 ) {
     log::trace!("Searching YAML node");
 
@@ -82,7 +82,7 @@ async fn search_mono_fields_recursive(
     }
 }
 
-fn parse_persistent_calls(persistent_calls: &Yaml) -> Vec<Method> {
+fn parse_persistent_calls(persistent_calls: &Yaml) -> Vec<MethodParam> {
     log::trace!("Found persistent call: {:#?}", persistent_calls);
 
     if let Yaml::Array(targets) = &persistent_calls["m_Calls"] {
@@ -92,7 +92,7 @@ fn parse_persistent_calls(persistent_calls: &Yaml) -> Vec<Method> {
     }
 }
 
-fn parse_call(call: &Yaml) -> Option<Method> {
+fn parse_call(call: &Yaml) -> Option<MethodParam> {
     let method_target = &call["m_MethodName"];
     let target_assembly_type = &call["m_TargetAssemblyTypeName"];
 
@@ -100,7 +100,7 @@ fn parse_call(call: &Yaml) -> Option<Method> {
         if let Yaml::String(method_assembly_type) = target_assembly_type {
             let (class, assembly) = method_assembly_type.split_once(", ").expect("REMOVE THIS");
 
-            let found_method_call = Method {
+            let found_method_call = MethodParam {
                 method_name: method_name.clone(),
                 method_assembly: assembly.to_owned(),
                 method_typename: class.to_owned(),

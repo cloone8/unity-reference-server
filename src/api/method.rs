@@ -11,10 +11,10 @@ pub async fn rpc_method_handler(
     params: Params<'static>,
     context: Arc<Crawler>,
     _extensions: Extensions,
-) -> ResponsePayload<'static, Vec<MethodRef>> {
+) -> ResponsePayload<'static, Vec<MethodResponse>> {
     log::debug!("Handling method request");
 
-    let method: Method = match params.parse() {
+    let method: MethodParam = match params.parse() {
         Ok(m) => m,
         Err(e) => return ResponsePayload::error(e),
     };
@@ -25,13 +25,13 @@ pub async fn rpc_method_handler(
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
-pub struct Method {
+pub struct MethodParam {
     pub method_name: String,
     pub method_assembly: String,
     pub method_typename: String,
 }
 
-impl Display for Method {
+impl Display for MethodParam {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -42,6 +42,6 @@ impl Display for Method {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MethodRef {
+pub struct MethodResponse {
     pub file: String,
 }

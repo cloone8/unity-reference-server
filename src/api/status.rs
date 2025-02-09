@@ -10,14 +10,15 @@ pub async fn rpc_status_handler(
     _params: Params<'static>,
     context: Arc<Crawler>,
     _extensions: Extensions,
-) -> ResponsePayload<'static, ServerStatus> {
+) -> ResponsePayload<'static, StatusResponse> {
     log::debug!("Handling status request");
 
     ResponsePayload::success(context.status.read().await.clone())
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ServerStatus {
+#[serde(rename_all = "snake_case")]
+pub enum StatusResponse {
     Inactive,
     Initializing,
     Ready,

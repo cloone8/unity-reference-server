@@ -12,8 +12,8 @@ use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use crate::api::method::{Method, MethodRef};
-use crate::api::status::ServerStatus;
+use crate::api::method::{MethodParam, MethodResponse};
+use crate::api::status::StatusResponse;
 use crate::yamlparser::search_yaml_doc;
 
 static UNITY_STRIPPED_REGEX: tokio::sync::RwLock<Option<Regex>> = RwLock::const_new(None);
@@ -21,8 +21,8 @@ static UNITY_STRIPPED_REGEX: tokio::sync::RwLock<Option<Regex>> = RwLock::const_
 #[derive(Debug, Clone)]
 pub struct Crawler {
     dir: PathBuf,
-    pub status: Arc<RwLock<ServerStatus>>,
-    pub refs: Arc<RwLock<HashMap<Method, Vec<MethodRef>>>>,
+    pub status: Arc<RwLock<StatusResponse>>,
+    pub refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>,
 }
 
 impl Crawler {
@@ -31,23 +31,23 @@ impl Crawler {
 
         Self {
             dir: dir.as_ref().to_path_buf(),
-            status: Arc::new(RwLock::const_new(ServerStatus::Inactive)),
+            status: Arc::new(RwLock::const_new(StatusResponse::Inactive)),
             refs: Arc::new(RwLock::const_new(HashMap::default())),
         }
     }
 
     pub async fn start(&self) {
-        if !matches!(*self.status.read().await, ServerStatus::Inactive) {
+        if !matches!(*self.status.read().await, StatusResponse::Inactive) {
             return;
         }
 
         let mut status = self.status.write().await;
 
-        if !matches!(*status, ServerStatus::Inactive) {
+        if !matches!(*status, StatusResponse::Inactive) {
             return;
         }
 
-        *status = ServerStatus::Initializing;
+        *status = StatusResponse::Initializing;
 
         std::mem::drop(status);
 
@@ -62,7 +62,7 @@ impl Crawler {
 
             match crawl_dir(&dir, refs_arc).await {
                 Ok(()) => {
-                    *status_arc.write().await = ServerStatus::Ready;
+                    *status_arc.write().await = StatusResponse::Ready;
                     log::info!(
                         "Crawler done after {}s",
                         Instant::now().duration_since(start_time).as_secs_f32()
@@ -81,7 +81,7 @@ const EXTENSIONS: &[&str] = &["unity", "prefab"];
 
 async fn crawl_dir(
     dir: &Path,
-    refs: Arc<RwLock<HashMap<Method, Vec<MethodRef>>>>,
+    refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>,
 ) -> io::Result<()> {
     log::debug!("Crawling directory {}", dir.to_string_lossy());
 
@@ -101,7 +101,7 @@ async fn crawl_dir(
 fn crawl_dir_entry(
     item: DirEntry,
     join_set: &mut JoinSet<()>,
-    refs: Arc<RwLock<HashMap<Method, Vec<MethodRef>>>>,
+    refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>,
 ) {
     join_set.spawn(async move {
         let item_type = item.file_type().await.unwrap();
@@ -127,7 +127,7 @@ fn crawl_dir_entry(
     });
 }
 
-async fn handle_file(file: &Path, refs: Arc<RwLock<HashMap<Method, Vec<MethodRef>>>>) {
+async fn handle_file(file: &Path, refs: Arc<RwLock<HashMap<MethodParam, Vec<MethodResponse>>>>) {
     if let Some(extension) = file.extension().and_then(|ext| ext.to_str()) {
         if EXTENSIONS.contains(&extension) {
             log::debug!("Found possible file: {}", file.to_string_lossy());

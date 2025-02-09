@@ -2,6 +2,9 @@
 
 This file will document the most important changes for each released version.
 
+## [v1.0.0]
+- Renamed server status return values to be lowercase
+
 ## [v0.1.4]
 - Logs now go to stderr, leaving stdout for other communication
 - Added option to output structured JSON logs instead of pretty colored terminal logs
