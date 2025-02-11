@@ -74,7 +74,9 @@ impl<W: Write + Send> Log for JsonLogger<W> {
             message: body,
         };
 
-        _ = serde_json::to_writer(&mut *self.writer.lock().unwrap(), &log);
+        let mut writer = self.writer.lock().unwrap();
+        _ = serde_json::to_writer(&mut *writer, &log);
+        _ = writer.write(b"\n");
     }
 
     fn flush(&self) {
